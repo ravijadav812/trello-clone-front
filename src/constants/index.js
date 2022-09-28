@@ -1,10 +1,1 @@
-export const data = [
-  {
-    stage: "completed",
-    tasks: ["Write blog", "Draft a mail"],
-  },
-  {
-    stage: "to-do",
-    tasks: ["call a client"],
-  },
-];
+export const BASE_URL = process.env.REACT_APP_API_URL;

@@ -1,14 +1,16 @@
-import React, { Fragment, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import Container from "@mui/material/Container";
-import { data } from "../constants";
+import { BASE_URL } from "../constants";
 import StageColumn from "../components/column";
 import Grid from "@mui/material/Grid";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
+import axios from "axios";
 
 const MainComponent = () => {
-  const [tasks, setTasks] = useState(data);
+  const [tasks, setTasks] = useState([]);
   const [add, setAdd] = useState(false);
+
   const onDragEnter = (evt) => {
     evt.preventDefault();
     let element = evt.currentTarget;
@@ -31,24 +33,52 @@ const MainComponent = () => {
     evt.dataTransfer.dropEffect = "move";
   };
 
-  const onDrop = (evt, value, status) => {
+  const onDrop = async (evt, value, status) => {
     evt.preventDefault();
     evt.currentTarget.classList.remove("dragged-over");
-    let data = evt.dataTransfer.getData("text/plain");
-    let task = tasks;
-    console.log("data", value);
-    const updated = task.map((task) => {
-      if (task.stage === status) {
-        task.tasks = [...task.tasks, data];
+    let data = JSON.parse(evt.dataTransfer.getData("text/plain"));
+    console.log("data", value, data.title, status);
+    try {
+      const updateTask = await axios.put(BASE_URL + `tasks/${data._id}`, {
+        title: data.title,
+        stageId: status._id,
+      });
+      if (updateTask.status === 200) {
+        fetchStages();
       }
-      return task;
-    });
-    console.log(updated);
-    setTasks(updated);
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   const onDragEnd = (evt) => {
     evt.currentTarget.classList.remove("dragged");
+  };
+
+  useEffect(() => {
+    fetchStages();
+  }, []);
+
+  const fetchStages = async () => {
+    try {
+      const all = await axios.get(BASE_URL + "stage");
+      if (all.status === 200) {
+        setTasks(all.data);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const deleteStage = async (id) => {
+    try {
+      const deleteStage = await axios.delete(BASE_URL + `stage/${id}`);
+      if (deleteStage.status === 200) {
+        setTasks(tasks.filter((t) => t._id !== id));
+      }
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   return (
@@ -56,21 +86,23 @@ const MainComponent = () => {
       <Grid container spacing={3} display="row" rowSpacing={1}>
         {tasks.map((m, i) => {
           return (
-            <Grid item xs={2}>
+            <Grid item xs={3}>
               <StageColumn
-                title={m.stage}
+                data={m}
+                title={m.title}
                 tasks={m.tasks}
-                key={i}
+                key={`stage${i}`}
                 onDragLeave={onDragLeave}
                 onDragEnter={onDragEnter}
                 onDragEnd={onDragEnd}
                 onDragOver={onDragOver}
                 onDrop={onDrop}
+                deleteStage={deleteStage}
               />
             </Grid>
           );
         })}
-        <Grid item xs={2}>
+        <Grid item xs={3}>
           {add ? (
             <AddNew addNewFun={setTasks} tasks={tasks} setAdd={setAdd} />
           ) : (
@@ -93,21 +125,42 @@ export default MainComponent;
 
 const AddNew = ({ addNewFun, tasks, setAdd }) => {
   const [title, setTitle] = useState("");
+
+  const createNew = async () => {
+    try {
+      const newStage = await axios.post(BASE_URL + "stage", { title: title });
+      if (newStage.status === 201) {
+        addNewFun([...tasks, newStage.data]);
+      }
+    } catch (error) {}
+  };
+
   return (
     <Fragment>
       <TextField value={title} onChange={(e) => setTitle(e.target.value)} />
-      <Button
-        variant="contained"
-        onClick={() => {
-          if (title !== "") {
-            addNewFun([...tasks, { stage: title, tasks: [] }]);
+      <Container>
+        <Button
+          variant="contained"
+          onClick={() => {
+            if (title !== "") {
+              createNew();
+              setAdd(false);
+              setTitle("");
+            }
+          }}
+        >
+          Add
+        </Button>
+        <Button
+          variant="outlined"
+          color="error"
+          onClick={() => {
             setAdd(false);
-            setTitle("");
-          }
-        }}
-      >
-        Add
-      </Button>
+          }}
+        >
+          X
+        </Button>
+      </Container>
     </Fragment>
   );
 };
